@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubevirt-online-resize-helper
+  namespace: {{ .SeedNamespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubevirt-online-resize-helper
+  template:
+    metadata:
+      labels:
+        app: kubevirt-online-resize-helper
+    spec:
+      containers:
+        - name: controller
+          image: {{ .Image }}
+          args:
+            - --namespace={{ .InfraNamespace }}
+            - --infra-kubeconfig=/etc/infra-kubeconfig/kubeconfig
+          volumeMounts:
+            - name: infra-kubeconfig
+              mountPath: /etc/infra-kubeconfig
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+      volumes:
+        - name: infra-kubeconfig
+          secret:
+            secretName: {{ .InfraKubeconfigSecret }}
