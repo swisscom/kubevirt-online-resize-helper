@@ -27,7 +27,7 @@ func init() {
 
 func main() {
 	var (
-		namespace      string
+		namespace       string
 		infraKubeconfig string
 	)
 	flag.StringVar(&namespace, "namespace", "", "Namespace to watch on the infra cluster (required)")

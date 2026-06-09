@@ -73,9 +73,9 @@ func SetupPVCReconciler(mgr ctrl.Manager) error {
 }
 
 const (
-	AnnotationResizeTrigger    = "skp.swisscom.com/resize-trigger"
-	AnnotationLastResized      = "skp.swisscom.com/last-resized-capacity"
-	requeueInterval            = 5 * time.Second
+	AnnotationResizeTrigger = "skp.swisscom.com/resize-trigger"
+	AnnotationLastResized   = "skp.swisscom.com/last-resized-capacity"
+	requeueInterval         = 5 * time.Second
 )
 
 func (r *PVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -169,7 +169,7 @@ func (r *PVCReconciler) findVirtLauncherPod(ctx context.Context, vmi *kubevirtv1
 	var podList corev1.PodList
 	if err := r.client.List(ctx, &podList,
 		client.InNamespace(vmi.Namespace),
-		client.MatchingLabels{"kubevirt.io/domain": vmi.Name},
+		client.MatchingLabels{"kubevirt.io/vm": vmi.Name},
 	); err != nil {
 		return nil, fmt.Errorf("listing virt-launcher pods: %w", err)
 	}
@@ -253,8 +253,8 @@ func (r *PVCReconciler) findHotplugOwner(ctx context.Context, pvc *corev1.Persis
 // capacityChangePredicate only passes update events where PVC status.capacity changed.
 func capacityChangePredicate() predicate.Predicate {
 	return predicate.Funcs{
-		CreateFunc: func(e event.CreateEvent) bool { return false },
-		DeleteFunc: func(e event.DeleteEvent) bool { return false },
+		CreateFunc:  func(e event.CreateEvent) bool { return false },
+		DeleteFunc:  func(e event.DeleteEvent) bool { return false },
 		GenericFunc: func(e event.GenericEvent) bool { return false },
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldPVC, ok := e.ObjectOld.(*corev1.PersistentVolumeClaim)
