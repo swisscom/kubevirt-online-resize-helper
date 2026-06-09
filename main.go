@@ -2,14 +2,19 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"net/http"
 	"os"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -77,6 +82,26 @@ func main() {
 
 	if err := controller.SetupPVCReconciler(mgr); err != nil {
 		log.Error(err, "unable to setup PVC reconciler")
+		os.Exit(1)
+	}
+
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		log.Error(err, "unable to set up health check")
+		os.Exit(1)
+	}
+	if err := mgr.AddReadyzCheck("readyz", func(req *http.Request) error {
+		ctx := req.Context()
+		var pods corev1.PodList
+		if err := mgr.GetClient().List(ctx, &pods, client.InNamespace(namespace), client.Limit(1)); err != nil {
+			return fmt.Errorf("cannot list pods on infra cluster: %w", err)
+		}
+		var pvcs corev1.PersistentVolumeClaimList
+		if err := mgr.GetClient().List(ctx, &pvcs, client.InNamespace(namespace), client.Limit(1)); err != nil {
+			return fmt.Errorf("cannot list PVCs on infra cluster: %w", err)
+		}
+		return nil
+	}); err != nil {
+		log.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
 

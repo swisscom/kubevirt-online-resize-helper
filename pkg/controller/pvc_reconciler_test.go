@@ -56,7 +56,10 @@ func (m *mockExecutor) BlockResize(_ context.Context, _, _, domainName, devicePa
 }
 
 func newTestReconciler(objs ...client.Object) (*PVCReconciler, *mockAnnotator, *mockExecutor) {
-	c := fake.NewClientBuilder().WithScheme(testScheme()).WithObjects(objs...).Build()
+	c := fake.NewClientBuilder().
+		WithScheme(testScheme()).
+		WithObjects(objs...).
+		Build()
 	ann := &mockAnnotator{}
 	exec := &mockExecutor{}
 	return &PVCReconciler{client: c, annotator: ann, executor: exec}, ann, exec
@@ -467,7 +470,7 @@ func TestReconcile_FindsVirtLauncherPod(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "virt-launcher-test-vmi-abc",
 			Namespace: "ns1",
-			Labels:    map[string]string{"kubevirt.io/domain": "test-vmi"},
+			Labels:    map[string]string{"kubevirt.io/vm": "test-vmi"},
 		},
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	}
@@ -545,7 +548,7 @@ func TestFindVirtLauncherPod_SkipsTerminatingPods(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              "virt-launcher-old",
 			Namespace:         "ns1",
-			Labels:            map[string]string{"kubevirt.io/domain": "test-vmi"},
+			Labels:            map[string]string{"kubevirt.io/vm": "test-vmi"},
 			DeletionTimestamp: &now,
 			Finalizers:        []string{"test-finalizer"},
 		},
@@ -602,7 +605,7 @@ func TestReconcile_ExecsBlockResizeAndMarksPVC(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "virt-launcher-my-vmi-xyz",
 			Namespace: "ns1",
-			Labels:    map[string]string{"kubevirt.io/domain": "my-vmi"},
+			Labels:    map[string]string{"kubevirt.io/vm": "my-vmi"},
 		},
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	}
@@ -679,7 +682,7 @@ func TestReconcile_RequeuesOnExecFailure(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "virt-launcher-my-vmi-xyz",
 			Namespace: "ns1",
-			Labels:    map[string]string{"kubevirt.io/domain": "my-vmi"},
+			Labels:    map[string]string{"kubevirt.io/vm": "my-vmi"},
 		},
 		Status: corev1.PodStatus{Phase: corev1.PodRunning},
 	}

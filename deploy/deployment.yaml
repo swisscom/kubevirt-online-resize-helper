@@ -13,12 +13,26 @@ spec:
       labels:
         app: kubevirt-online-resize-helper
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: controller
           image: {{ .Image }}
           args:
             - --namespace={{ .InfraNamespace }}
             - --infra-kubeconfig=/etc/infra-kubeconfig/kubeconfig
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           volumeMounts:
             - name: infra-kubeconfig
               mountPath: /etc/infra-kubeconfig
@@ -30,16 +44,25 @@ spec:
             limits:
               cpu: 200m
               memory: 128Mi
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8081
+              port: health
             initialDelaySeconds: 5
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /readyz
-              port: 8081
+              port: health
             initialDelaySeconds: 5
+            periodSeconds: 10
       volumes:
         - name: infra-kubeconfig
           secret:

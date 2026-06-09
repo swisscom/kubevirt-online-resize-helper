@@ -95,7 +95,7 @@ PVC `status.capacity` changes (predicate filters non-capacity updates).
    - If VMI capacity still stale → requeue (5s, max 60s backoff)
 
 6. Exec blockresize
-   - Find virt-launcher pod: label `kubevirt.io/domain=<vmi.Name>`, container `compute`
+   - Find virt-launcher pod: label `kubevirt.io/vm=<vmi.Name>`, container `compute`
    - Domain name: read from VMI (namespace_name format)
    - Device path: /var/run/kubevirt/hotplug-disks/<volume-name>
    - Exec: `virsh blockresize <domain> <device-path> 0`
