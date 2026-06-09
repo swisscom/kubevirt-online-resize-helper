@@ -1,0 +1,43 @@
+version: '3'
+
+vars:
+  BINARY: kubevirt-online-resize-helper
+  IMAGE: '{{.IMAGE | default "kubevirt-online-resize-helper"}}'
+  TAG: '{{.TAG | default "latest"}}'
+
+tasks:
+  build:
+    desc: Build the binary
+    cmds:
+      - CGO_ENABLED=0 go build -o {{.BINARY}} .
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - go test ./... -count=1 -v
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  lint:
+    desc: Run build, vet, and tests
+    cmds:
+      - task: vet
+      - task: test
+
+  docker-build:
+    desc: Build the Docker image
+    cmds:
+      - docker build -t {{.IMAGE}}:{{.TAG}} .
+
+  docker-push:
+    desc: Push the Docker image
+    cmds:
+      - docker push {{.IMAGE}}:{{.TAG}}
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -f {{.BINARY}}
