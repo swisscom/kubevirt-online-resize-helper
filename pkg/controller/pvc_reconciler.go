@@ -18,6 +18,13 @@ import (
 	kubevirtv1 "kubevirt.io/api/core/v1"
 )
 
+const (
+	AnnotationResizeTrigger        = "skp.swisscom.com/resize-trigger"
+	AnnotationLastResized          = "skp.swisscom.com/last-resized-capacity"
+	regularRequeueInterval         = 5 * time.Second
+	diskNotAttachedRequeueInterval = 3 * regularRequeueInterval
+)
+
 // VMIAnnotator abstracts VMI annotation patching for testability.
 type VMIAnnotator interface {
 	Annotate(ctx context.Context, vmi *kubevirtv1.VirtualMachineInstance, key, value string) error
@@ -72,12 +79,6 @@ func SetupPVCReconciler(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-const (
-	AnnotationResizeTrigger = "skp.swisscom.com/resize-trigger"
-	AnnotationLastResized   = "skp.swisscom.com/last-resized-capacity"
-	requeueInterval         = 5 * time.Second
-)
-
 func (r *PVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 
@@ -105,7 +106,7 @@ func (r *PVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// Wait for PVC expansion to complete on infra level.
 	if pvcIsResizing(&pvc) {
 		logger.Info("PVC still resizing, requeuing", "pvc", pvc.Name)
-		return ctrl.Result{RequeueAfter: requeueInterval}, nil
+		return ctrl.Result{RequeueAfter: regularRequeueInterval}, nil
 	}
 
 	// Get VMI's view of this volume's capacity.
@@ -122,7 +123,7 @@ func (r *PVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return ctrl.Result{}, err
 		}
 		logger.Info("annotated VMI to trigger re-sync", "vmi", vmi.Name)
-		return ctrl.Result{RequeueAfter: requeueInterval}, nil
+		return ctrl.Result{RequeueAfter: regularRequeueInterval}, nil
 	}
 
 	// VMI capacity is updated. Find the virt-launcher pod.
@@ -132,7 +133,7 @@ func (r *PVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 	if pod == nil {
 		logger.Info("virt-launcher pod not found, requeuing", "vmi", vmi.Name)
-		return ctrl.Result{RequeueAfter: requeueInterval}, nil
+		return ctrl.Result{RequeueAfter: regularRequeueInterval}, nil
 	}
 
 	// Exec virsh blockresize in the compute container.
@@ -140,6 +141,10 @@ func (r *PVCReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	devicePath := "/var/run/kubevirt/hotplug-disks/" + volumeName
 
 	if err := r.executor.BlockResize(ctx, pod.Namespace, pod.Name, domainName, devicePath); err != nil {
+		if strings.Contains(err.Error(), "not found in the domain config") {
+			logger.Info("disk not yet attached to domain, requeuing", "pod", pod.Name)
+			return ctrl.Result{RequeueAfter: diskNotAttachedRequeueInterval}, nil
+		}
 		logger.Error(err, "blockresize exec failed, requeuing", "pod", pod.Name)
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
@@ -267,6 +272,10 @@ func capacityChangePredicate() predicate.Predicate {
 			}
 			oldCap := oldPVC.Status.Capacity[corev1.ResourceStorage]
 			newCap := newPVC.Status.Capacity[corev1.ResourceStorage]
+			// Skip initial capacity population (0 → N); only act on real resizes.
+			if oldCap.IsZero() {
+				return false
+			}
 			return !oldCap.Equal(newCap)
 		},
 	}

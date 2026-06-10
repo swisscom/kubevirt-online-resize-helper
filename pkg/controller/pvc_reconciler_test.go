@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -195,7 +196,7 @@ func TestReconcile_SkipsNonHotplugPVC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Requeue {
+	if result.RequeueAfter > 0*time.Second {
 		t.Error("expected no requeue for non-hotplug PVC")
 	}
 }
@@ -362,7 +363,7 @@ func TestReconcile_SkipsAlreadyProcessedPVC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Requeue || result.RequeueAfter != 0 {
+	if result.RequeueAfter != 0 {
 		t.Error("expected no requeue for already-processed PVC")
 	}
 	if mock.called {
