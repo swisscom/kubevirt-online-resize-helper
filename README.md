@@ -20,6 +20,9 @@ This operator bridges the gap until upstream fixes are available.
 5. Execs `virsh blockresize <domain> <device-path> 0` in the virt-launcher compute container
 6. Guest immediately sees the new block device size; tenant kubelet retries `NodeExpandVolume` to resize the filesystem
 
+As it can happen, that the `kubevirt-csi-driver` flags the volume as resized even though the kubelet did not pick up on it yet, the `csidriver` needs to be adjusted and the `requireRepublish` flag set to `true`.
+This ensures that the PV is revisited by the kubelet and resized if required.
+
 ## Usage
 
 ```bash
